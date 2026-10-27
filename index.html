@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Catcher Arcade</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0f0f1a;
+            color: #ffffff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        h1 {
+            margin: 5px 0;
+            font-size: 1.8rem;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+        p {
+            margin: 0 0 10px 0;
+            color: #ff00ff;
+            font-size: 0.9rem;
+        }
+        canvas {
+            background: #1a1a2e;
+            border: 3px solid #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            cursor: pointer;
+        }
+        .instructions {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #8888aa;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>NEON CATCHER</h1>
+    <p>Catch the cyan glowing orbs! Avoid the red hazards!</p>
+    
+    <canvas id="gameCanvas" width="480" height="600"></canvas>
+    
+    <div class="instructions">Use <b>Left/Right Arrows</b> or <b>A/D</b> to move. Press <b>Space</b> to restart.</div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Game state
+        let score = 0;
+        let lives = 3;
+        let isGameOver = false;
+
+        // Player paddle
+        const player = {
+            x: canvas.width / 2 - 40,
+            y: canvas.height - 40,
+            width: 80,
+            height: 15,
+            dx: 0,
+            speed: 7,
+            color: "#00ffff"
+        };
+
+        // Falling items
+        let items = [];
+        let spawnTimer = 0;
+
+        // Input tracking
+        let keys = {};
+        window.addEventListener("keydown", (e) => {
+            keys[e.code] = true;
+            if (e.code === "Space" && isGameOver) {
+                resetGame();
+            }
+        });
+        window.addEventListener("keyup", (e) => {
+            keys[e.code] = false;
+        });
+
+        // Mouse/Touch controls for mobile support
+        canvas.addEventListener("mousemove", (e) => {
+            const rect = canvas.getBoundingClientRect();
+            player.x = e.clientX - rect.left - player.width / 2;
+        });
+
+        function resetGame() {
+            score = 0;
+            lives = 3;
+            items = [];
+            isGameOver = false;
+            loop();
+        }
+
+        function spawnItem() {
+            const isHazard = Math.random() < 0.25; // 25% chance for a red hazard
+            items.push({
+                x: Math.random() * (canvas.width - 25),
+                y: -25,
+                radius: 12,
+                speed: 2 + Math.random() * 3 + (score * 0.1), // Speeds up as score increases
+                isHazard: isHazard,
+                color: isHazard ? "#ff0055" : "#00ffcc"
+            });
+        }
+
+        function update() {
+            if (isGameOver) return;
+
+            // Player movement via keyboard
+            if ((keys["ArrowLeft"] || keys["KeyA"]) && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if ((keys["ArrowRight"] || keys["KeyD"]) && player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+
+            // Spawn items
+            spawnTimer++;
+            if (spawnTimer > 35) {
+                spawnItem();
+                spawnTimer = 0;
+            }
+
+            // Update items
+            for (let i = items.length - 1; i >= 0; i--) {
+                let item = items[i];
+                item.y += item.speed;
+
+                // Collision with paddle
+                if (
+                    item.y + item.radius >= player.y &&
+                    item.y - item.radius <= player.y + player.height &&
+                    item.x >= player.x &&
+                    item.x <= player.x + player.width
+                ) {
+                    if (item.isHazard) {
+                        lives--;
+                        if (lives <= 0) isGameOver = true;
+                    } else {
+                        score += 10;
+                    }
+                    items.splice(i, 1);
+                    continue;
+                }
+
+                // Remove items that hit the bottom
+                if (item.y > canvas.height) {
+                    if (!item.isHazard) {
+                        lives--; // Missed good item costs a life
+                        if (lives <= 0) isGameOver = true;
+                    }
+                    items.splice(i, 1);
+                }
+            }
+        }
+
+        function draw() {
+            // Clear background
+            ctx.fillStyle = "#1a1a2e";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw player paddle with neon glow
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = player.color;
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+
+            // Draw items
+            for (let item of items) {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = item.color;
+                ctx.fillStyle = item.color;
+                ctx.beginPath();
+                ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Reset shadow for UI text
+            ctx.shadowBlur = 0;
+
+            // Draw HUD (Score & Lives)
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "16px 'Courier New'";
+            ctx.fillText(`Score: ${score}`, 20, 30);
+            ctx.fillText(`Lives: ${"♥ ".repeat(lives)}`, canvas.width - 110, 30);
+
+            // Game Over Screen
+            if (isGameOver) {
+                ctx.fillStyle = "rgba(10, 10, 20, 0.85)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "#ff0055";
+                ctx.font = "bold 32px 'Courier New'";
+                ctx.textAlign = "center";
+                ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 20);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "16px 'Courier New'";
+                ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+                ctx.fillText("Press SPACE to Play Again", canvas.width / 2, canvas.height / 2 + 60);
+                ctx.textAlign = "left"; // Reset alignment
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            if (!isGameOver) {
+                requestAnimationFrame(loop);
+            }
+        }
+
+        // Start game loop
+        loop();
+    </script>
+</body>
+</html>
