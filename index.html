@@ -3,225 +3,1316 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Catcher Arcade</title>
+    <title>Chronicles of Aethelgard - Retro Action RPG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
         body {
-            margin: 0;
-            padding: 0;
-            background: #0f0f1a;
+            font-family: 'Press Start 2P', monospace;
+            background-color: #0d0e15;
             color: #ffffff;
-            font-family: 'Courier New', Courier, monospace;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
+            user-select: none;
+            touch-action: none;
         }
-        h1 {
-            margin: 5px 0;
-            font-size: 1.8rem;
-            color: #00ffff;
-            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+
+        .pixelated {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
         }
-        p {
-            margin: 0 0 10px 0;
-            color: #ff00ff;
-            font-size: 0.9rem;
+
+        /* Custom Scrollbar for Inventory/Logs */
+        ::-webkit-scrollbar {
+            width: 8px;
         }
-        canvas {
-            background: #1a1a2e;
-            border: 3px solid #00ffff;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
-            cursor: pointer;
+        ::-webkit-scrollbar-track {
+            background: #111827;
         }
-        .instructions {
-            margin-top: 10px;
-            font-size: 0.8rem;
-            color: #8888aa;
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 4px;
+        }
+
+        .hud-border {
+            border: 4px solid #4b5563;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 0 15px rgba(0,0,0,0.5);
+            background: rgba(17, 24, 39, 0.9);
+        }
+
+        .btn-retro {
+            background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+            border: 2px solid #60a5fa;
+            box-shadow: 0 4px 0 #1e40af;
+            transition: all 0.05s ease;
+        }
+        .btn-retro:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #1e40af;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+        .glow-effect {
+            animation: pulse-glow 2s infinite;
         }
     </style>
 </head>
-<body>
+<body class="flex flex-col items-center justify-center min-h-screen p-2 sm:p-4 overflow-hidden select-none">
 
-    <h1>NEON CATCHER</h1>
-    <p>Catch the cyan glowing orbs! Avoid the red hazards!</p>
-    
-    <canvas id="gameCanvas" width="480" height="600"></canvas>
-    
-    <div class="instructions">Use <b>Left/Right Arrows</b> or <b>A/D</b> to move. Press <b>Space</b> to restart.</div>
+    <!-- Header / Title -->
+    <header class="text-center mb-2">
+        <h1 class="text-lg sm:text-2xl font-bold text-amber-400 tracking-wider drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+            CHRONICLES OF AETHELGARD
+        </h1>
+        <p class="text-[10px] sm:text-xs text-gray-400 mt-1">Zelda • Pokémon • Mario Inspired Action RPG</p>
+    </header>
 
+    <!-- Main Game Container -->
+    <div class="relative flex flex-col items-center justify-center w-full max-w-4xl">
+        
+        <!-- Game Canvas Screen -->
+        <div class="relative hud-border rounded-lg overflow-hidden w-full aspect-[4/3] max-h-[70vh] flex items-center justify-center">
+            <canvas id="gameCanvas" width="800" height="600" class="pixelated w-full h-full object-contain bg-black"></canvas>
+
+            <!-- HUD Overlay -->
+            <div id="hudOverlay" class="absolute inset-0 pointer-events-none p-3 flex flex-col justify-between">
+                <!-- Top HUD Row -->
+                <div class="flex justify-between items-start gap-2">
+                    <!-- Player Health & Status -->
+                    <div class="flex flex-col gap-1 bg-black/60 p-2 rounded border border-gray-700 backdrop-blur-sm">
+                        <div class="flex items-center gap-1" id="heartsContainer">
+                            <!-- Heart Icons inserted dynamically -->
+                        </div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-[10px] text-amber-400">LVL <span id="playerLevel">1</span></span>
+                            <div class="w-24 bg-gray-800 h-2 rounded-full overflow-hidden border border-gray-600">
+                                <div id="xpBar" class="bg-blue-500 h-full w-0 transition-all duration-300"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Zone Info & Minimap Placeholder -->
+                    <div class="flex flex-col items-end gap-1 bg-black/60 p-2 rounded border border-gray-700 backdrop-blur-sm">
+                        <span id="zoneTitle" class="text-xs text-emerald-400 font-bold">Emerald Forest</span>
+                        <div class="flex items-center gap-3 text-[10px] text-yellow-300 mt-1">
+                            <span>COINS: <span id="coinCount">0</span></span>
+                            <span>KEYS: <span id="keyCount">0</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Boss Health Bar (Hidden by default) -->
+                <div id="bossBarContainer" class="hidden self-center w-3/4 bg-black/80 p-2 rounded border-2 border-red-600 flex flex-col items-center gap-1 backdrop-blur">
+                    <span id="bossName" class="text-xs text-red-500 font-bold tracking-widest">BOSS NAME</span>
+                    <div class="w-full bg-gray-900 h-4 rounded overflow-hidden border border-red-900">
+                        <div id="bossHpBar" class="bg-gradient-to-r from-red-600 to-amber-500 h-full w-full transition-all duration-200"></div>
+                    </div>
+                </div>
+
+                <!-- Bottom HUD Row -->
+                <div class="flex justify-between items-end gap-2">
+                    <!-- Quest Log Tracker -->
+                    <div class="bg-black/70 p-2 rounded border border-gray-700 max-w-[240px] backdrop-blur-sm">
+                        <div class="text-[9px] text-amber-300 font-bold mb-1 border-b border-gray-700 pb-1">CURRENT QUEST</div>
+                        <p id="questObjective" class="text-[9px] text-gray-200 leading-relaxed">Talk to the Village Elder in Emerald Forest.</p>
+                    </div>
+
+                    <!-- Companion Slot / Skill Info -->
+                    <div class="flex items-center gap-2 bg-black/70 p-2 rounded border border-gray-700 backdrop-blur-sm">
+                        <div id="companionIcon" class="w-8 h-8 rounded border-2 border-dashed border-gray-500 flex items-center justify-center text-xs bg-gray-900 text-gray-500">
+                            NONE
+                        </div>
+                        <div class="flex flex-col text-[9px]">
+                            <span class="text-cyan-300 font-bold" id="companionName">No Companion</span>
+                            <span class="text-gray-400" id="companionAbility">Key [X]: Special</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dialogue Overlay Box -->
+            <div id="dialogueOverlay" class="hidden absolute bottom-4 left-4 right-4 bg-gray-900/95 border-4 border-amber-500 rounded-lg p-3 flex gap-3 items-center shadow-2xl backdrop-blur-md z-20">
+                <div id="dialogueAvatar" class="w-14 h-14 bg-gray-800 border-2 border-amber-400 rounded flex items-center justify-center text-2xl flex-shrink-0">
+                    🧙‍♂️
+                </div>
+                <div class="flex-1 overflow-hidden">
+                    <h4 id="dialogueSpeaker" class="text-xs text-amber-400 font-bold mb-1">Village Elder</h4>
+                    <p id="dialogueText" class="text-[10px] text-gray-200 leading-snug">Welcome, brave Hero! Deep troubles brew in the forest...</p>
+                </div>
+                <div class="text-[9px] text-amber-400 animate-pulse self-end mb-1">Press [Space] ➔</div>
+            </div>
+
+            <!-- Start / Pause / Game Over Screen Overlay -->
+            <div id="menuOverlay" class="absolute inset-0 bg-black/85 flex flex-col items-center justify-center p-6 text-center z-30">
+                <h2 id="menuTitle" class="text-xl sm:text-2xl text-amber-400 mb-2">CHRONICLES OF AETHELGARD</h2>
+                <p id="menuSubtitle" class="text-xs text-gray-300 max-w-md mb-6 leading-relaxed">
+                    A darkness threatens the land. Rescue elemental companions, level up your sword, conquer dungeons, and defeat the Shadow Overlord!
+                </p>
+
+                <div class="flex flex-col gap-3 w-48">
+                    <button id="startBtn" class="btn-retro px-4 py-3 rounded text-xs font-bold text-white tracking-wider">
+                        START GAME
+                    </button>
+                    <button id="audioToggleBtn" class="bg-gray-800 hover:bg-gray-700 border border-gray-600 px-3 py-2 rounded text-[10px] text-gray-300">
+                        SOUND: ON 🔊
+                    </button>
+                </div>
+
+                <!-- Controls Quick Reference -->
+                <div class="mt-6 pt-4 border-t border-gray-800 text-[9px] text-gray-400 flex flex-wrap justify-center gap-4">
+                    <span><b>MOVE:</b> WASD / Arrows</span>
+                    <span><b>ATTACK:</b> Spacebar / Z</span>
+                    <span><b>ABILITY:</b> X Key</span>
+                    <span><b>INTERACT:</b> Spacebar</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Touch Controls for Mobile Compatibility -->
+        <div class="flex sm:hidden justify-between items-center w-full mt-3 px-2">
+            <!-- D-Pad -->
+            <div class="grid grid-cols-3 gap-1 w-32 h-32">
+                <div></div>
+                <button id="btnUp" class="bg-gray-800 border border-gray-600 rounded flex items-center justify-center text-lg active:bg-gray-700">▲</button>
+                <div></div>
+                <button id="btnLeft" class="bg-gray-800 border border-gray-600 rounded flex items-center justify-center text-lg active:bg-gray-700">◄</button>
+                <div class="bg-gray-900/50 rounded"></div>
+                <button id="btnRight" class="bg-gray-800 border border-gray-600 rounded flex items-center justify-center text-lg active:bg-gray-700">►</button>
+                <div></div>
+                <button id="btnDown" class="bg-gray-800 border border-gray-600 rounded flex items-center justify-center text-lg active:bg-gray-700">▼</button>
+                <div></div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-3">
+                <button id="btnAbility" class="w-14 h-14 bg-purple-700 border-2 border-purple-400 rounded-full flex flex-col items-center justify-center text-[10px] font-bold active:scale-95 shadow-lg">
+                    <span>X</span>
+                    <span class="text-[8px] text-purple-200">SKILL</span>
+                </button>
+                <button id="btnAttack" class="w-16 h-16 bg-red-600 border-2 border-red-400 rounded-full flex flex-col items-center justify-center text-[10px] font-bold active:scale-95 shadow-lg">
+                    <span>Z/SPACE</span>
+                    <span class="text-[8px] text-red-200">ATTACK</span>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Retro Game Engine Logic -->
     <script>
+        /**
+         * CHRONICLES OF AETHELGARD - Main Game Engine
+         * Top-down 2D Action RPG built in pure HTML5 Canvas & Web Audio API
+         */
+
+        // ==========================================
+        // 1. AUDIO SYNTHESIZER (Web Audio API)
+        // ==========================================
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playTone(freq, type, duration, vol = 0.1) {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e){}
+            }
+
+            swordSwing() {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.12);
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.12);
+                } catch(e){}
+            }
+
+            coin() {
+                this.playTone(987.77, 'sine', 0.08, 0.1);
+                setTimeout(() => this.playTone(1318.51, 'sine', 0.15, 0.1), 80);
+            }
+
+            hit() {
+                this.playTone(120, 'sawtooth', 0.15, 0.2);
+            }
+
+            levelUp() {
+                const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99];
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => this.playTone(freq, 'square', 0.1, 0.08), idx * 70);
+                });
+            }
+
+            fireball() {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.25);
+                    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.25);
+                } catch(e){}
+            }
+
+            bossRoar() {
+                this.playTone(60, 'sawtooth', 0.6, 0.3);
+            }
+        }
+
+        const sfx = new SoundFX();
+
+        // ==========================================
+        // 2. GAME STATE & CONSTANTS
+        // ==========================================
+        const CANVAS_WIDTH = 800;
+        const CANVAS_HEIGHT = 600;
+        const TILE_SIZE = 40;
+
+        const ZONES = {
+            FOREST: {
+                id: 'FOREST',
+                title: 'Emerald Forest',
+                bgColor: '#132a13',
+                obstacleColor: '#2d6a4f',
+                pathColor: '#31572c',
+                musicColor: '#52b788'
+            },
+            CAVERN: {
+                id: 'CAVERN',
+                title: 'Fire Cavern',
+                bgColor: '#2b0903',
+                obstacleColor: '#7a1c0d',
+                pathColor: '#4a1207',
+                musicColor: '#e05638'
+            },
+            CITADEL: {
+                id: 'CITADEL',
+                title: 'Shadow Citadel',
+                bgColor: '#0f051d',
+                obstacleColor: '#3c1642',
+                pathColor: '#1c0b2b',
+                musicColor: '#a100f2'
+            }
+        };
+
+        const QUESTS = [
+            { id: 0, desc: "Talk to Village Elder in Emerald Forest." },
+            { id: 1, desc: "Rescue the Fire Sprite in Emerald Forest!" },
+            { id: 2, desc: "Defeat 5 Forest Slimes and unlock Fire Cavern." },
+            { id: 3, desc: "Find the Citadel Key inside the Fire Cavern." },
+            { id: 4, desc: "Defeat the Magma Drake in Fire Cavern." },
+            { id: 5, desc: "Enter Shadow Citadel and slay the Shadow Overlord!" },
+            { id: 6, desc: "VICTORY! Peace is restored to Aethelgard!" }
+        ];
+
+        // ==========================================
+        // 3. ENGINE VARIABLES
+        // ==========================================
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // Game state
-        let score = 0;
-        let lives = 3;
-        let isGameOver = false;
+        let gameState = "MENU"; // MENU, PLAYING, DIALOGUE, GAMEOVER, VICTORY
+        let currentZone = ZONES.FOREST;
+        let currentQuestIndex = 0;
+        let screenShakeTime = 0;
 
-        // Player paddle
+        // Key listeners
+        const keys = {};
+
+        // Player Instance
         const player = {
-            x: canvas.width / 2 - 40,
-            y: canvas.height - 40,
-            width: 80,
-            height: 15,
-            dx: 0,
-            speed: 7,
-            color: "#00ffff"
+            x: 400,
+            y: 300,
+            width: 32,
+            height: 32,
+            speed: 3.5,
+            direction: 'down', // up, down, left, right
+            hp: 6,
+            maxHp: 6,
+            level: 1,
+            xp: 0,
+            nextXp: 100,
+            coins: 0,
+            keys: 0,
+            attackPower: 15,
+            isAttacking: false,
+            attackTimer: 0,
+            attackBox: { x: 0, y: 0, width: 0, height: 0 },
+            invulnerableTimer: 0,
+            companion: null // Active companion object
         };
 
-        // Falling items
+        // Entities arrays
+        let npcs = [];
+        let enemies = [];
+        let projectiles = [];
+        let particles = [];
+        let floatingTexts = [];
         let items = [];
-        let spawnTimer = 0;
+        let obstacles = [];
+        let zonePortals = [];
 
-        // Input tracking
-        let keys = {};
-        window.addEventListener("keydown", (e) => {
+        // Active Dialogue State
+        let activeDialogue = null;
+        let dialogueIndex = 0;
+
+        // Companion Database
+        const COMPANIONS = {
+            FIRE_SPRITE: {
+                name: "Ignis (Fire Sprite)",
+                icon: "🔥",
+                ability: "Shoots Fireballs [X]",
+                color: "#ff4d00",
+                cooldown: 0
+            },
+            SHIELD_TURTLE: {
+                name: "Shelly (Aqua Shell)",
+                icon: "🛡️",
+                ability: "Temporary Shield Barrier [X]",
+                color: "#00a2ff",
+                cooldown: 0
+            }
+        };
+
+        // ==========================================
+        // 4. MAP & ZONE INITIALIZATION
+        // ==========================================
+        function loadZone(zone) {
+            currentZone = zone;
+            document.getElementById("zoneTitle").innerText = zone.title;
+            document.getElementById("zoneTitle").style.color = zone.musicColor;
+
+            // Clear entities
+            npcs = [];
+            enemies = [];
+            projectiles = [];
+            obstacles = [];
+            zonePortals = [];
+
+            // Outer Boundary Walls
+            buildMapBoundaries();
+
+            if (zone === ZONES.FOREST) {
+                // Add obstacles (Trees/Rocks)
+                obstacles.push({ x: 200, y: 150, width: 80, height: 80 });
+                obstacles.push({ x: 500, y: 100, width: 120, height: 80 });
+                obstacles.push({ x: 150, y: 350, width: 80, height: 120 });
+
+                // Elder NPC
+                npcs.push({
+                    id: 'ELDER',
+                    x: 380,
+                    y: 120,
+                    width: 32,
+                    height: 32,
+                    name: 'Village Elder',
+                    avatar: '🧙‍♂️',
+                    dialogue: [
+                        "Greetings traveler! Dark forces threaten Aethelgard.",
+                        "A Fire Sprite companion is trapped by slimes to the East!",
+                        "Rescue the Sprite to gain elemental firepower!"
+                    ]
+                });
+
+                // Trapped Companion Cage / NPC
+                if (currentQuestIndex <= 1) {
+                    npcs.push({
+                        id: 'FIRE_SPRITE_CAGE',
+                        x: 680,
+                        y: 450,
+                        width: 36,
+                        height: 36,
+                        name: 'Trapped Sprite',
+                        avatar: '🔥',
+                        dialogue: [
+                            "Squeak! (The Fire Sprite is trapped inside a cage!)",
+                            "Defeat the nearby slimes to free it!"
+                        ]
+                    });
+                }
+
+                // Forest Enemies (Slimes)
+                spawnEnemies('SLIME', 5);
+
+                // Portal to Cavern (Unlocked on Quest 3+)
+                zonePortals.push({
+                    x: 740, y: 260, width: 40, height: 80,
+                    targetZone: ZONES.CAVERN, targetX: 80, targetY: 300,
+                    requiredQuest: 2, label: "To Fire Cavern"
+                });
+
+            } else if (zone === ZONES.CAVERN) {
+                // Obstacles (Lava Pits)
+                obstacles.push({ x: 250, y: 200, width: 300, height: 60 });
+                obstacles.push({ x: 100, y: 400, width: 120, height: 100 });
+
+                // Cavern Enemies (Magma Golems)
+                spawnEnemies('GOLEM', 6);
+
+                // Boss: Magma Drake (if quest demands)
+                if (currentQuestIndex >= 3) {
+                    enemies.push(createBoss('MAGMA_DRAKE', 600, 300));
+                }
+
+                // Portal back to Forest
+                zonePortals.push({
+                    x: 20, y: 260, width: 40, height: 80,
+                    targetZone: ZONES.FOREST, targetX: 680, targetY: 280,
+                    requiredQuest: 0, label: "To Forest"
+                });
+
+                // Portal to Citadel
+                zonePortals.push({
+                    x: 740, y: 260, width: 40, height: 80,
+                    targetZone: ZONES.CITADEL, targetX: 80, targetY: 300,
+                    requiredQuest: 5, label: "To Shadow Citadel"
+                });
+
+            } else if (zone === ZONES.CITADEL) {
+                // Obstacles (Pillars)
+                obstacles.push({ x: 200, y: 150, width: 60, height: 60 });
+                obstacles.push({ x: 540, y: 150, width: 60, height: 60 });
+                obstacles.push({ x: 200, y: 400, width: 60, height: 60 });
+                obstacles.push({ x: 540, y: 400, width: 60, height: 60 });
+
+                // Final Boss: Shadow Overlord
+                enemies.push(createBoss('SHADOW_OVERLORD', 400, 150));
+
+                // Portal back to Cavern
+                zonePortals.push({
+                    x: 20, y: 260, width: 40, height: 80,
+                    targetZone: ZONES.CAVERN, targetX: 680, targetY: 280,
+                    requiredQuest: 0, label: "To Fire Cavern"
+                });
+            }
+        }
+
+        function buildMapBoundaries() {
+            obstacles.push({ x: 0, y: 0, width: CANVAS_WIDTH, height: 20 });
+            obstacles.push({ x: 0, y: CANVAS_HEIGHT - 20, width: CANVAS_WIDTH, height: 20 });
+            obstacles.push({ x: 0, y: 0, width: 20, height: CANVAS_HEIGHT });
+            obstacles.push({ x: CANVAS_WIDTH - 20, y: 0, width: 20, height: CANVAS_HEIGHT });
+        }
+
+        function spawnEnemies(type, count) {
+            for (let i = 0; i < count; i++) {
+                let rx = 150 + Math.random() * (CANVAS_WIDTH - 300);
+                let ry = 150 + Math.random() * (CANVAS_HEIGHT - 300);
+                
+                if (type === 'SLIME') {
+                    enemies.push({
+                        id: Math.random(),
+                        type: 'SLIME',
+                        x: rx, y: ry, width: 28, height: 28,
+                        hp: 25, maxHp: 25, attack: 1, speed: 1.2,
+                        color: '#40916c', name: 'Forest Slime', xpValue: 25
+                    });
+                } else if (type === 'GOLEM') {
+                    enemies.push({
+                        id: Math.random(),
+                        type: 'GOLEM',
+                        x: rx, y: ry, width: 36, height: 36,
+                        hp: 55, maxHp: 55, attack: 2, speed: 1.0,
+                        color: '#d90429', name: 'Magma Golem', xpValue: 50
+                    });
+                }
+            }
+        }
+
+        function createBoss(type, x, y) {
+            if (type === 'MAGMA_DRAKE') {
+                return {
+                    id: 'BOSS_DRAKE',
+                    type: 'BOSS',
+                    name: 'MAGMA DRAKE',
+                    x: x, y: y, width: 64, height: 64,
+                    hp: 250, maxHp: 250, attack: 2, speed: 1.5,
+                    color: '#ff4d00', xpValue: 200, phase: 1,
+                    attackTimer: 0
+                };
+            } else if (type === 'SHADOW_OVERLORD') {
+                return {
+                    id: 'BOSS_SHADOW',
+                    type: 'BOSS',
+                    name: 'SHADOW OVERLORD',
+                    x: x, y: y, width: 72, height: 72,
+                    hp: 500, maxHp: 500, attack: 3, speed: 1.8,
+                    color: '#7209b7', xpValue: 500, phase: 1,
+                    attackTimer: 0
+                };
+            }
+        }
+
+        // ==========================================
+        // 5. INPUT HANDLING
+        // ==========================================
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
             keys[e.code] = true;
-            if (e.code === "Space" && isGameOver) {
-                resetGame();
+
+            if (gameState === "PLAYING") {
+                if (e.code === "Space" || e.key.toLowerCase() === "z") {
+                    handleAttackOrInteract();
+                }
+                if (e.key.toLowerCase() === "x") {
+                    triggerCompanionSkill();
+                }
+            } else if (gameState === "DIALOGUE") {
+                if (e.code === "Space" || e.key.toLowerCase() === "z") {
+                    advanceDialogue();
+                }
             }
         });
-        window.addEventListener("keyup", (e) => {
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
             keys[e.code] = false;
         });
 
-        // Mouse/Touch controls for mobile support
-        canvas.addEventListener("mousemove", (e) => {
-            const rect = canvas.getBoundingClientRect();
-            player.x = e.clientX - rect.left - player.width / 2;
-        });
+        // Touch Control Bindings
+        function setupTouchControls() {
+            const bindTouch = (id, keyName) => {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                btn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    keys[keyName] = true;
+                    if (keyName === 'space' && gameState === "PLAYING") handleAttackOrInteract();
+                    if (keyName === 'space' && gameState === "DIALOGUE") advanceDialogue();
+                    if (keyName === 'x' && gameState === "PLAYING") triggerCompanionSkill();
+                });
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    keys[keyName] = false;
+                });
+            };
 
-        function resetGame() {
-            score = 0;
-            lives = 3;
-            items = [];
-            isGameOver = false;
-            loop();
+            bindTouch('btnUp', 'arrowup');
+            bindTouch('btnDown', 'arrowdown');
+            bindTouch('btnLeft', 'arrowleft');
+            bindTouch('btnRight', 'arrowright');
+            bindTouch('btnAttack', 'space');
+            bindTouch('btnAbility', 'x');
         }
 
-        function spawnItem() {
-            const isHazard = Math.random() < 0.25; // 25% chance for a red hazard
-            items.push({
-                x: Math.random() * (canvas.width - 25),
-                y: -25,
-                radius: 12,
-                speed: 2 + Math.random() * 3 + (score * 0.1), // Speeds up as score increases
-                isHazard: isHazard,
-                color: isHazard ? "#ff0055" : "#00ffcc"
-            });
-        }
-
+        // ==========================================
+        // 6. GAME LOGIC & UPDATES
+        // ==========================================
         function update() {
-            if (isGameOver) return;
+            if (gameState !== "PLAYING") return;
 
-            // Player movement via keyboard
-            if ((keys["ArrowLeft"] || keys["KeyA"]) && player.x > 0) {
-                player.x -= player.speed;
-            }
-            if ((keys["ArrowRight"] || keys["KeyD"]) && player.x < canvas.width - player.width) {
-                player.x += player.speed;
+            // Player Movement
+            let dx = 0;
+            let dy = 0;
+
+            if (keys['w'] || keys['arrowup']) { dy -= 1; player.direction = 'up'; }
+            if (keys['s'] || keys['arrowdown']) { dy += 1; player.direction = 'down'; }
+            if (keys['a'] || keys['arrowleft']) { dx -= 1; player.direction = 'left'; }
+            if (keys['d'] || keys['arrowright']) { dx += 1; player.direction = 'right'; }
+
+            // Normalize diagonal movement
+            if (dx !== 0 && dy !== 0) {
+                dx *= 0.7071;
+                dy *= 0.7071;
             }
 
-            // Spawn items
-            spawnTimer++;
-            if (spawnTimer > 35) {
-                spawnItem();
-                spawnTimer = 0;
+            // Move X & check collisions
+            player.x += dx * player.speed;
+            checkObstacleCollision('x');
+
+            // Move Y & check collisions
+            player.y += dy * player.speed;
+            checkObstacleCollision('y');
+
+            // Invulnerability timer
+            if (player.invulnerableTimer > 0) player.invulnerableTimer--;
+
+            // Attack logic & timer
+            if (player.isAttacking) {
+                player.attackTimer--;
+                if (player.attackTimer <= 0) {
+                    player.isAttacking = false;
+                }
             }
 
-            // Update items
+            // Update Companion Skill Cooldown
+            if (player.companion && player.companion.cooldown > 0) {
+                player.companion.cooldown--;
+            }
+
+            // Update Projectiles
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                let p = projectiles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+
+                // Particle tail
+                particles.push({
+                    x: p.x, y: p.y, vx: (Math.random()-0.5), vy: (Math.random()-0.5),
+                    life: 10, color: p.color, size: 3
+                });
+
+                // Hit enemies
+                if (p.isPlayer) {
+                    for (let e of enemies) {
+                        if (checkRectOverlap(p, e)) {
+                            damageEnemy(e, p.damage);
+                            p.life = 0;
+                            break;
+                        }
+                    }
+                } else {
+                    // Enemy projectile hits player
+                    if (checkRectOverlap(p, player) && player.invulnerableTimer <= 0) {
+                        damagePlayer(p.damage);
+                        p.life = 0;
+                    }
+                }
+
+                if (p.life <= 0) projectiles.splice(i, 1);
+            }
+
+            // Update Enemies
+            let bossPresent = false;
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+
+                if (e.type === 'BOSS') {
+                    bossPresent = true;
+                    updateBoss(e);
+                } else {
+                    // Regular enemy AI (Chases player)
+                    let edx = player.x - e.x;
+                    let edy = player.y - e.y;
+                    let dist = Math.hypot(edx, edy);
+
+                    if (dist < 220 && dist > 5) {
+                        e.x += (edx / dist) * e.speed;
+                        e.y += (edy / dist) * e.speed;
+                    }
+                }
+
+                // Collision with player sword attack
+                if (player.isAttacking && checkRectOverlap(player.attackBox, e)) {
+                    damageEnemy(e, player.attackPower);
+                }
+
+                // Collision with Player
+                if (checkRectOverlap(e, player) && player.invulnerableTimer <= 0) {
+                    damagePlayer(e.attack);
+                }
+
+                if (e.hp <= 0) {
+                    // Enemy Defeated
+                    sfx.hit();
+                    createExplosion(e.x, e.y, e.color);
+                    addXp(e.xpValue);
+
+                    // Chance to drop heart or coin
+                    if (Math.random() < 0.6) {
+                        items.push({
+                            type: Math.random() < 0.3 ? 'HEART' : 'COIN',
+                            x: e.x, y: e.y, width: 16, height: 16
+                        });
+                    }
+
+                    // Check quest conditions
+                    if (currentQuestIndex === 2 && currentZone === ZONES.FOREST) {
+                        let remainingSlimes = enemies.filter(en => en.type === 'SLIME' && en.id !== e.id).length;
+                        if (remainingSlimes === 0) {
+                            advanceQuest(3);
+                        }
+                    }
+
+                    if (e.type === 'BOSS') {
+                        if (e.id === 'BOSS_DRAKE') {
+                            items.push({ type: 'KEY', x: e.x, y: e.y, width: 20, height: 20 });
+                            advanceQuest(5);
+                        } else if (e.id === 'BOSS_SHADOW') {
+                            triggerVictory();
+                        }
+                    }
+
+                    enemies.splice(i, 1);
+                }
+            }
+
+            // Update Boss HUD Bar visibility
+            let bossBar = document.getElementById("bossBarContainer");
+            if (bossPresent) {
+                let boss = enemies.find(en => en.type === 'BOSS');
+                if (boss) {
+                    bossBar.classList.remove("hidden");
+                    document.getElementById("bossName").innerText = boss.name;
+                    document.getElementById("bossHpBar").style.width = `${(boss.hp / boss.maxHp) * 100}%`;
+                }
+            } else {
+                bossBar.classList.add("hidden");
+            }
+
+            // Update Items Pickups
             for (let i = items.length - 1; i >= 0; i--) {
                 let item = items[i];
-                item.y += item.speed;
-
-                // Collision with paddle
-                if (
-                    item.y + item.radius >= player.y &&
-                    item.y - item.radius <= player.y + player.height &&
-                    item.x >= player.x &&
-                    item.x <= player.x + player.width
-                ) {
-                    if (item.isHazard) {
-                        lives--;
-                        if (lives <= 0) isGameOver = true;
-                    } else {
-                        score += 10;
-                    }
-                    items.splice(i, 1);
-                    continue;
-                }
-
-                // Remove items that hit the bottom
-                if (item.y > canvas.height) {
-                    if (!item.isHazard) {
-                        lives--; // Missed good item costs a life
-                        if (lives <= 0) isGameOver = true;
+                if (checkRectOverlap(player, item)) {
+                    if (item.type === 'COIN') {
+                        player.coins += 5;
+                        sfx.coin();
+                        addFloatingText("+5 Coins", player.x, player.y - 10, "#ffd700");
+                    } else if (item.type === 'HEART') {
+                        if (player.hp < player.maxHp) {
+                            player.hp = Math.min(player.maxHp, player.hp + 2);
+                            sfx.coin();
+                            addFloatingText("+HP", player.x, player.y - 10, "#ff4d6d");
+                        }
+                    } else if (item.type === 'KEY') {
+                        player.keys += 1;
+                        sfx.levelUp();
+                        addFloatingText("CITADEL KEY!", player.x, player.y - 10, "#a100f2");
                     }
                     items.splice(i, 1);
                 }
             }
+
+            // Check Portals
+            for (let portal of zonePortals) {
+                if (checkRectOverlap(player, portal)) {
+                    if (currentQuestIndex >= portal.requiredQuest) {
+                        loadZone(portal.targetZone);
+                        player.x = portal.targetX;
+                        player.y = portal.targetY;
+                        break;
+                    } else {
+                        addFloatingText("LOCKED (Follow Quest)", player.x, player.y - 15, "#ff4d4d");
+                    }
+                }
+            }
+
+            // Update Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let pt = particles[i];
+                pt.x += pt.vx;
+                pt.y += pt.vy;
+                pt.life--;
+                if (pt.life <= 0) particles.splice(i, 1);
+            }
+
+            // Update Floating Texts
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                let ft = floatingTexts[i];
+                ft.y -= 0.6;
+                ft.life--;
+                if (ft.life <= 0) floatingTexts.splice(i, 1);
+            }
+
+            // Screen Shake
+            if (screenShakeTime > 0) screenShakeTime--;
+
+            updateHUD();
         }
 
-        function draw() {
-            // Clear background
-            ctx.fillStyle = "#1a1a2e";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        function updateBoss(boss) {
+            boss.attackTimer++;
+            let distance = Math.hypot(player.x - boss.x, player.y - boss.y);
 
-            // Draw player paddle with neon glow
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = player.color;
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.width, player.height);
+            // Phase logic based on HP
+            if (boss.hp < boss.maxHp * 0.5 && boss.phase === 1) {
+                boss.phase = 2;
+                boss.speed *= 1.3;
+                sfx.bossRoar();
+                triggerScreenShake(15);
+                addFloatingText("BOSS ENRAGED!", boss.x, boss.y - 20, "#ff0000");
+            }
 
-            // Draw items
-            for (let item of items) {
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = item.color;
-                ctx.fillStyle = item.color;
+            // Boss Attacks
+            if (boss.attackTimer > (boss.phase === 2 ? 60 : 90)) {
+                boss.attackTimer = 0;
+                sfx.bossRoar();
+
+                // Fire ring / projectiles
+                let projectileCount = boss.phase === 2 ? 8 : 4;
+                for (let i = 0; i < projectileCount; i++) {
+                    let angle = (Math.PI * 2 / projectileCount) * i;
+                    projectiles.push({
+                        x: boss.x + boss.width / 2,
+                        y: boss.y + boss.height / 2,
+                        width: 12, height: 12,
+                        vx: Math.cos(angle) * 3.5,
+                        vy: Math.sin(angle) * 3.5,
+                        damage: boss.attack,
+                        color: boss.color,
+                        isPlayer: false,
+                        life: 120
+                    });
+                }
+            }
+
+            // Slowly move toward player
+            if (distance > 40) {
+                boss.x += ((player.x - boss.x) / distance) * boss.speed;
+                boss.y += ((player.y - boss.y) / distance) * boss.speed;
+            }
+        }
+
+        function checkObstacleCollision(axis) {
+            for (let obs of obstacles) {
+                if (checkRectOverlap(player, obs)) {
+                    if (axis === 'x') {
+                        if (player.x < obs.x) player.x = obs.x - player.width;
+                        else player.x = obs.x + obs.width;
+                    }
+                    if (axis === 'y') {
+                        if (player.y < obs.y) player.y = obs.y - player.height;
+                        else player.y = obs.y + obs.height;
+                    }
+                }
+            }
+        }
+
+        function handleAttackOrInteract() {
+            // Check NPC Interaction
+            for (let npc of npcs) {
+                if (Math.hypot(player.x - npc.x, player.y - npc.y) < 50) {
+                    triggerDialogue(npc);
+                    return;
+                }
+            }
+
+            // Trigger Sword Attack
+            if (!player.isAttacking) {
+                player.isAttacking = true;
+                player.attackTimer = 12; // frames
+                sfx.swordSwing();
+
+                const reach = 36;
+                if (player.direction === 'up') {
+                    player.attackBox = { x: player.x - 10, y: player.y - reach, width: 52, height: reach };
+                } else if (player.direction === 'down') {
+                    player.attackBox = { x: player.x - 10, y: player.y + player.height, width: 52, height: reach };
+                } else if (player.direction === 'left') {
+                    player.attackBox = { x: player.x - reach, y: player.y - 10, width: reach, height: 52 };
+                } else if (player.direction === 'right') {
+                    player.attackBox = { x: player.x + player.width, y: player.y - 10, width: reach, height: 52 };
+                }
+
+                // Slash particles
+                for (let i = 0; i < 6; i++) {
+                    particles.push({
+                        x: player.attackBox.x + Math.random() * player.attackBox.width,
+                        y: player.attackBox.y + Math.random() * player.attackBox.height,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        life: 8,
+                        color: "#60a5fa",
+                        size: 4
+                    });
+                }
+            }
+        }
+
+        function triggerCompanionSkill() {
+            if (!player.companion) return;
+            if (player.companion.cooldown > 0) {
+                addFloatingText("RECHARGING!", player.x, player.y - 10, "#ff8800");
+                return;
+            }
+
+            if (player.companion === COMPANIONS.FIRE_SPRITE) {
+                sfx.fireball();
+                player.companion.cooldown = 45; // Cooldown frames
+
+                let vx = 0, vy = 0;
+                if (player.direction === 'up') vy = -7;
+                if (player.direction === 'down') vy = 7;
+                if (player.direction === 'left') vx = -7;
+                if (player.direction === 'right') vx = 7;
+                if (vx === 0 && vy === 0) vy = 7;
+
+                projectiles.push({
+                    x: player.x + player.width / 2,
+                    y: player.y + player.height / 2,
+                    width: 16, height: 16,
+                    vx: vx, vy: vy,
+                    damage: player.attackPower + 10,
+                    color: "#ff4d00",
+                    isPlayer: true,
+                    life: 80
+                });
+            }
+        }
+
+        function damageEnemy(enemy, damage) {
+            enemy.hp -= damage;
+            sfx.hit();
+            triggerScreenShake(4);
+            addFloatingText(`-${damage}`, enemy.x + 10, enemy.y, "#ff4d4d");
+        }
+
+        function damagePlayer(amount) {
+            player.hp -= amount;
+            player.invulnerableTimer = 30; // 0.5s invulnerability
+            sfx.hit();
+            triggerScreenShake(8);
+            addFloatingText(`-${amount} HP`, player.x, player.y - 10, "#ff0000");
+
+            if (player.hp <= 0) {
+                player.hp = 0;
+                gameState = "GAMEOVER";
+                showMenu("GAME OVER", "You have fallen in battle. Press Start to retry!");
+            }
+        }
+
+        function addXp(amount) {
+            player.xp += amount;
+            addFloatingText(`+${amount} XP`, player.x, player.y - 20, "#3b82f6");
+
+            if (player.xp >= player.nextXp) {
+                player.level++;
+                player.xp -= player.nextXp;
+                player.nextXp = Math.floor(player.nextXp * 1.5);
+                player.maxHp += 2;
+                player.hp = player.maxHp;
+                player.attackPower += 5;
+                sfx.levelUp();
+                addFloatingText("LEVEL UP!", player.x, player.y - 35, "#ffd700");
+            }
+        }
+
+        // Dialogue System
+        function triggerDialogue(npc) {
+            gameState = "DIALOGUE";
+            activeDialogue = npc;
+            dialogueIndex = 0;
+
+            document.getElementById("dialogueOverlay").classList.remove("hidden");
+            document.getElementById("dialogueSpeaker").innerText = npc.name;
+            document.getElementById("dialogueAvatar").innerText = npc.avatar;
+            document.getElementById("dialogueText").innerText = npc.dialogue[0];
+        }
+
+        function advanceDialogue() {
+            if (!activeDialogue) return;
+            dialogueIndex++;
+
+            if (dialogueIndex < activeDialogue.dialogue.length) {
+                document.getElementById("dialogueText").innerText = activeDialogue.dialogue[dialogueIndex];
+            } else {
+                // End dialogue
+                document.getElementById("dialogueOverlay").classList.add("hidden");
+                gameState = "PLAYING";
+
+                // Quest progression triggers
+                if (activeDialogue.id === 'ELDER' && currentQuestIndex === 0) {
+                    advanceQuest(1);
+                } else if (activeDialogue.id === 'FIRE_SPRITE_CAGE') {
+                    player.companion = COMPANIONS.FIRE_SPRITE;
+                    updateCompanionHUD();
+                    sfx.levelUp();
+                    addFloatingText("COMPANION JOINED!", player.x, player.y - 20, "#ff4d00");
+                    npcs = npcs.filter(n => n.id !== 'FIRE_SPRITE_CAGE');
+                    advanceQuest(2);
+                }
+            }
+        }
+
+        function advanceQuest(newQuestId) {
+            currentQuestIndex = newQuestId;
+            document.getElementById("questObjective").innerText = QUESTS[currentQuestIndex].desc;
+            addFloatingText("QUEST UPDATED!", CANVAS_WIDTH / 2 - 40, 50, "#ffd700");
+            sfx.levelUp();
+        }
+
+        // ==========================================
+        // 7. RENDERING & VISUALS
+        // ==========================================
+        function render() {
+            ctx.save();
+
+            // Apply Screen Shake
+            if (screenShakeTime > 0) {
+                let dx = (Math.random() - 0.5) * screenShakeTime;
+                let dy = (Math.random() - 0.5) * screenShakeTime;
+                ctx.translate(dx, dy);
+            }
+
+            // Background Floor
+            ctx.fillStyle = currentZone.bgColor;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // Draw Grid Lines (Retro Aesthetic)
+            ctx.strokeStyle = currentZone.pathColor;
+            ctx.lineWidth = 1;
+            for (let x = 0; x < CANVAS_WIDTH; x += TILE_SIZE) {
                 ctx.beginPath();
-                ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+            for (let y = 0; y < CANVAS_HEIGHT; y += TILE_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(CANVAS_WIDTH, y);
+                ctx.stroke();
+            }
+
+            // Draw Obstacles (Walls / Rocks / Lava)
+            ctx.fillStyle = currentZone.obstacleColor;
+            for (let obs of obstacles) {
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                ctx.strokeStyle = "#ffffff22";
+                ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+            }
+
+            // Draw Portals
+            for (let portal of zonePortals) {
+                let unlocked = currentQuestIndex >= portal.requiredQuest;
+                ctx.fillStyle = unlocked ? "#10b981" : "#4b5563";
+                ctx.fillRect(portal.x, portal.y, portal.width, portal.height);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "8px 'Press Start 2P'";
+                ctx.fillText(portal.label, portal.x - 10, portal.y - 5);
+            }
+
+            // Draw Pickups
+            for (let item of items) {
+                ctx.font = "14px 'Press Start 2P'";
+                if (item.type === 'COIN') ctx.fillText("🪙", item.x, item.y + 12);
+                if (item.type === 'HEART') ctx.fillText("❤️", item.x, item.y + 12);
+                if (item.type === 'KEY') ctx.fillText("🔑", item.x, item.y + 12);
+            }
+
+            // Draw NPCs
+            for (let npc of npcs) {
+                ctx.font = "24px 'Press Start 2P'";
+                ctx.fillText(npc.avatar, npc.x, npc.y + 24);
+
+                // Nametag
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "8px 'Press Start 2P'";
+                ctx.fillText(npc.name, npc.x - 10, npc.y - 5);
+            }
+
+            // Draw Enemies
+            for (let e of enemies) {
+                ctx.fillStyle = e.color;
+                ctx.fillRect(e.x, e.y, e.width, e.height);
+
+                // Health Bar over enemy
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(e.x, e.y - 8, e.width, 4);
+                ctx.fillStyle = "#ff4d4d";
+                ctx.fillRect(e.x, e.y - 8, (e.hp / e.maxHp) * e.width, 4);
+            }
+
+            // Draw Projectiles
+            for (let p of projectiles) {
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.width / 2, 0, Math.PI * 2);
                 ctx.fill();
             }
 
-            // Reset shadow for UI text
-            ctx.shadowBlur = 0;
+            // Draw Companion following Player
+            if (player.companion) {
+                let followX = player.x - 20;
+                let followY = player.y - 15;
+                ctx.font = "16px 'Press Start 2P'";
+                ctx.fillText(player.companion.icon, followX, followY);
+            }
 
-            // Draw HUD (Score & Lives)
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "16px 'Courier New'";
-            ctx.fillText(`Score: ${score}`, 20, 30);
-            ctx.fillText(`Lives: ${"♥ ".repeat(lives)}`, canvas.width - 110, 30);
+            // Draw Player
+            if (player.invulnerableTimer % 4 < 2) { // Flashing when hit
+                ctx.fillStyle = "#3b82f6"; // Hero Blue
+                ctx.fillRect(player.x, player.y, player.width, player.height);
 
-            // Game Over Screen
-            if (isGameOver) {
-                ctx.fillStyle = "rgba(10, 10, 20, 0.85)";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                ctx.fillStyle = "#ff0055";
-                ctx.font = "bold 32px 'Courier New'";
-                ctx.textAlign = "center";
-                ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 20);
-
+                // Eyes indicating direction
                 ctx.fillStyle = "#ffffff";
-                ctx.font = "16px 'Courier New'";
-                ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
-                ctx.fillText("Press SPACE to Play Again", canvas.width / 2, canvas.height / 2 + 60);
-                ctx.textAlign = "left"; // Reset alignment
+                let eyeX = player.x + 8, eyeY = player.y + 8;
+                if (player.direction === 'right') eyeX += 8;
+                if (player.direction === 'left') eyeX -= 4;
+                if (player.direction === 'up') eyeY -= 4;
+                if (player.direction === 'down') eyeY += 4;
+                ctx.fillRect(eyeX, eyeY, 6, 6);
+            }
+
+            // Draw Sword Slash Animation
+            if (player.isAttacking) {
+                ctx.fillStyle = "rgba(96, 165, 250, 0.6)";
+                ctx.fillRect(player.attackBox.x, player.attackBox.y, player.attackBox.width, player.attackBox.height);
+            }
+
+            // Draw Particles
+            for (let pt of particles) {
+                ctx.fillStyle = pt.color;
+                ctx.fillRect(pt.x, pt.y, pt.size || 2, pt.size || 2);
+            }
+
+            // Draw Floating Damage Texts
+            for (let ft of floatingTexts) {
+                ctx.fillStyle = ft.color;
+                ctx.font = "10px 'Press Start 2P'";
+                ctx.fillText(ft.text, ft.x, ft.y);
+            }
+
+            ctx.restore();
+        }
+
+        // ==========================================
+        // 8. HELPER UTILITIES
+        // ==========================================
+        function checkRectOverlap(rect1, rect2) {
+            return (
+                rect1.x < rect2.x + rect2.width &&
+                rect1.x + rect1.width > rect2.x &&
+                rect1.y < rect2.y + rect2.height &&
+                rect1.y + rect1.height > rect2.y
+            );
+        }
+
+        function addFloatingText(text, x, y, color) {
+            floatingTexts.push({ text, x, y, color, life: 40 });
+        }
+
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 16; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    life: 20, color: color, size: 4
+                });
             }
         }
 
-        function loop() {
+        function triggerScreenShake(duration) {
+            screenShakeTime = duration;
+        }
+
+        function updateHUD() {
+            // Hearts
+            const heartsContainer = document.getElementById("heartsContainer");
+            heartsContainer.innerHTML = "";
+            let fullHearts = Math.floor(player.hp / 2);
+            let halfHeart = player.hp % 2 === 1;
+
+            for (let i = 0; i < Math.floor(player.maxHp / 2); i++) {
+                if (i < fullHearts) heartsContainer.innerHTML += '<span class="text-red-500 text-xs">❤️</span>';
+                else if (i === fullHearts && halfHeart) heartsContainer.innerHTML += '<span class="text-red-400 text-xs">💔</span>';
+                else heartsContainer.innerHTML += '<span class="text-gray-600 text-xs">🖤</span>';
+            }
+
+            // Level & XP Bar
+            document.getElementById("playerLevel").innerText = player.level;
+            document.getElementById("xpBar").style.width = `${(player.xp / player.nextXp) * 100}%`;
+
+            // Coins & Keys
+            document.getElementById("coinCount").innerText = player.coins;
+            document.getElementById("keyCount").innerText = player.keys;
+        }
+
+        function updateCompanionHUD() {
+            if (player.companion) {
+                document.getElementById("companionIcon").innerText = player.companion.icon;
+                document.getElementById("companionName").innerText = player.companion.name;
+                document.getElementById("companionAbility").innerText = player.companion.ability;
+            }
+        }
+
+        function showMenu(title, subtitle) {
+            document.getElementById("menuTitle").innerText = title;
+            document.getElementById("menuSubtitle").innerText = subtitle;
+            document.getElementById("menuOverlay").classList.remove("hidden");
+        }
+
+        function triggerVictory() {
+            gameState = "VICTORY";
+            advanceQuest(6);
+            showMenu("VICTORY ACHIEVED!", "You have defeated the Shadow Overlord and saved Aethelgard! You are a legendary hero!");
+        }
+
+        function resetGame() {
+            player.x = 400;
+            player.y = 300;
+            player.hp = 6;
+            player.maxHp = 6;
+            player.level = 1;
+            player.xp = 0;
+            player.coins = 0;
+            player.keys = 0;
+            player.companion = null;
+            currentQuestIndex = 0;
+
+            loadZone(ZONES.FOREST);
+            document.getElementById("questObjective").innerText = QUESTS[0].desc;
+            document.getElementById("companionIcon").innerText = "NONE";
+            document.getElementById("companionName").innerText = "No Companion";
+        }
+
+        // ==========================================
+        // 9. GAME LOOP & INITIALIZATION
+        // ==========================================
+        function gameLoop() {
             update();
-            draw();
-            if (!isGameOver) {
-                requestAnimationFrame(loop);
-            }
+            render();
+            requestAnimationFrame(gameLoop);
         }
 
-        // Start game loop
-        loop();
+        document.getElementById("startBtn").addEventListener("click", () => {
+            sfx.init();
+            if (gameState === "GAMEOVER" || gameState === "VICTORY") {
+                resetGame();
+            }
+            document.getElementById("menuOverlay").classList.add("hidden");
+            gameState = "PLAYING";
+        });
+
+        document.getElementById("audioToggleBtn").addEventListener("click", () => {
+            sfx.init();
+            sfx.enabled = !sfx.enabled;
+            document.getElementById("audioToggleBtn").innerText = `SOUND: ${sfx.enabled ? "ON 🔊" : "OFF 🔇"}`;
+        });
+
+        // Initialize on Load
+        window.onload = function() {
+            setupTouchControls();
+            loadZone(ZONES.FOREST);
+            gameLoop();
+        };
     </script>
 </body>
 </html>
